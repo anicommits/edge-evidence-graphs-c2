@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering
+\caption{Computational Cost and Memory Profile on Desktop CPU (Thread Cap = 2, Batch Size = 1). Parameter bytes plus peak activation memory measured via PyTorch execution hooks.}
+\label{tab:computational_cost}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccccc}
+\hline
+Model & Params & Param (KB) & Act (KB) & Total Mem & MACs & $p_{50}$ Latency \\
+\hline
+V2 & 183,446 & 716.6 & 232.0 & 948.6 KB & 3.18M & 1.28 ms \\
+DeepSets-both & 113,170 & 442.1 & 173.7 & 615.8 KB & 1.19M & 0.27 ms \\
+NoMP-V2 & 99,478 & 388.6 & 81.8 & 470.4 KB & 1.08M & 0.42 ms \\
+GCN-V2 & 116,436 & 454.8 & 138.8 & 593.7 KB & 1.65M & 0.66 ms \\
+GraphSAGE-V2 & 149,204 & 582.8 & 161.8 & 744.7 KB & 2.41M & 0.81 ms \\
+GATv1-dest-V2 & 116,948 & 456.8 & 138.8 & 595.7 KB & 1.65M & 1.34 ms \\
+\hline
+\end{tabular}
+}
+\end{table}

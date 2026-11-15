@@ -1,0 +1,500 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{placeins}
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+% Auto-generated number macros (read from results/final/ via tables/macros_final.tex)
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+    pdfauthor={Aniket Chakraborty},
+    pdftitle={Edge Evidence Graphs for Spacecraft Command-and-Control Security: A Benchmark Audit on Synthetic Data}
+}
+\input{tables/macros_final}
+\input{tables/macros_final2}
+\input{tables/macros_final3}
+
+\begin{document}
+
+\title{Edge Evidence Graphs for Spacecraft Command-and-Control Security:\\
+A Benchmark Audit on Synthetic Data}
+
+\author{\IEEEauthorblockN{Aniket Chakraborty}
+\IEEEauthorblockA{\textit{B.Sc. Cyber Security, The Heritage Academy} \\
+\textit{Affiliated to Maulana Abul Kalam Azad University of Technology (MAKAUT)} \\
+Kolkata, India \\
+chakrabortyaniket050@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Spacecraft command-and-control (C2) is a safety-critical cyber-physical system in which a cryptographically valid command can still be physically unsafe. We study SP-SP-GAT, a typed relational graph model of C2 that consumes per-edge telemetry indicators with applicability masks, together with a deterministic command gate that is specified but not yet implemented. On the synthetic SatSecGraph-1 benchmark (50 missions, 18 classes, five dataset seeds), the corrected model reaches $\macroVTwoMean \pm \macroVTwoStd$ Macro-F1 under a common training protocol, above graph baselines (\macroGCNVTwoMean--\macroGraphSAGEVTwoMean) with bootstrap CIs excluding zero, while DeepSets (\macroDeepSetsbothMean) is marginally higher and HistGradientBoosting (\macroHGBMean) is not distinguishable. Replacing learned attention by uniform weights changes nothing detectable; the margin over graph baselines that use node features only in message passing is consistent with edge-aware message passing. An audit identified three implementation defects (an identically zero pooled feature, an attention softmax normalised over the whole graph, and premature early stopping); correcting the first two raises Macro-F1 from 0.657 to 0.949 (V0 to V2). Single features separate all 17 attack sublabels from plain nominal telemetry (17/17 at $\ge 86\%$ recall and $\le 1.5\%$ FPR), but a multi-feature static threshold monitor raises about 60\% false alarms on benign disturbance episodes, against 8--21\% for the corrected graph and set models.
+\end{abstract}
+
+\begin{IEEEkeywords}
+cyber-physical systems, spacecraft security, command and control, graph neural networks, benchmark audit, runtime assurance
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Spacecraft command-and-control (C2) is a safety-critical cyber-physical system in which a cryptographically valid command can still be physically unsafe. Modern space missions increasingly rely on commercial off-the-shelf components, federated
+ground stations, and complex onboard flight software. These operational architectures cross
+multiple trust domains: ground enterprise operators, mission operations centers,
+radio-frequency (RF) transponders, and distributed subsystem flight controllers.
+Securing spacecraft C2 requires end-to-end provenance and continuous
+verification across all intermediate segments.
+
+Graph neural networks (GNNs) have shown strong promise in network intrusion detection and
+cyber-physical systems by modeling relational dependencies. In spacecraft C2, the hypothesis
+is that relational graph attention (GATv2) enables detecting coordinated, cross-segment
+attack paths that elude isolated subsystem monitors. In this work, we systematically
+investigate this hypothesis using the SatSecGraph-1 benchmark (50 simulated missions,
+Weisfeiler-Lehman~\cite{ref_wl} graph-isomorphism partitioned splits, 18 fine-grained classes).
+
+Our contributions are:
+\begin{enumerate}
+\item \textbf{Typed heterogeneous C2 graph schema:} A typed heterogeneous C2 graph schema (23 node classes, 12 relation families) with per-edge telemetry indicators and applicability masks; the expected-minus-observed contract residual is a schema-level definition that the released model does not compute.
+\item \textbf{SP-SP-GAT V2 architecture and ablation:} A relational GATv2-style model with per-destination attention softmax and an applicable-only readout, and an ablation of the two code-level fixes.
+\item \textbf{Comparative empirical evaluation:} A rigorous multi-seed, clustered-bootstrap
+evaluation under Protocol P2 ($\min\mathrm{epochs}=30$, cosine schedule, gradient clipping)
+covering GNN baselines, DeepSets~\cite{ref_deepsets}, and tabular models, with hard-negative disturbance
+evaluation and single-feature separability audit.
+\item \textbf{Deterministic command gate specification:} A specification of a deterministic command gate (nine predicates in four groups), not implemented in this work, and a telemetry-threshold monitor evaluated as a baseline.
+\end{enumerate}
+
+\section{Standards Traceability and Threat Model}
+
+\subsection{Standards Traceability}
+The SP-SP schema is designed to map onto relevant space-data and security standards: CCSDS Security Architecture 351.0-M-1~\cite{ref1}, CCSDS Cryptographic
+Algorithms 352.0-B-2~\cite{ref2}, CCSDS Symmetric Key Management 354.0-M-1~\cite{ref3},
+CCSDS Space Data Link Security (SDLS) 355.0-B-2~\cite{ref4}, and SDLS Extended Procedures
+355.1-B-1~\cite{ref5}. Ground segment guidelines follow NIST IR 8401~\cite{ref9}, NIST IR
+8441~\cite{ref10}, and zero-trust architecture principles (NIST SP 800-207)~\cite{ref11}.
+Flight safety constraints align with NASA-STD-1006A~\cite{ref8} and ISO/TS 20517:2024~\cite{ref12}.
+Table~\ref{tab:evidence_families} defines the four core security evidence families preserved
+across all SP-SP relations.
+
+\begin{table}[htbp]
+\caption{Security Evidence Preserved on SP-SP Relations}
+\label{tab:evidence_families}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{p{2.0cm}p{3.2cm}p{2.8cm}p{2.6cm}}
+\toprule
+\textbf{Evidence Family} & \textbf{Evidence Fields (schema)} & \textbf{Decision Role} &
+\textbf{Explicit Non-Claim} \\
+\midrule
+Principal / Identity & Asserted ID, credential class, MFA factor, approval token &
+Binds human operator claim to command & Behavior does not prove human identity \\
+\midrule
+Device Assurance & Device cert, secure boot attestation, posture status &
+Establishes endpoint integrity independently & IP or SIM is not command authority \\
+\midrule
+Protocol \& Space Link & CCSDS SDLS SA, anti-replay counter, MAC, key epoch &
+Enforces link freshness and crypto integrity & Valid crypto does not prove command intent \\
+\midrule
+Physical Subsystem State & Actuator rate, battery state-of-charge, thermal margin &
+Validates operational physics safety & Onboard physics cannot verify operator authorization \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Related Work}
+Prior work documents satellite communication and firmware vulnerabilities, including unauthenticated downlinks~\cite{ref15}, active LEO network disruption~\cite{ref16}, VSAT signal injection~\cite{ref17}, and firmware flaws~\cite{ref14}; surveys by Salim et al.~\cite{ref12} and Manulis et al.~\cite{ref13} call for unified multi-segment monitoring. GNNs have been applied to network intrusion detection, for example E-GraphSAGE~\cite{ref23}, which builds on GraphSAGE~\cite{ref20}, and surveyed in~\cite{ref22}, and to provenance-based detection~\cite{ref25,ref26}. Spacecraft telemetry anomaly detection has primarily used time-series models or benchmark datasets without multi-segment causal graph grounding.
+
+\begin{table}[htbp]
+\caption{Proposed A1--A8 Supervision and Bounded Response Ontology}
+\label{tab:ontology}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lp{3.5cm}p{2.6cm}}
+\toprule
+\textbf{Family} & \textbf{Key Observables} & \textbf{Designed Gate Action} \\
+\midrule
+BENIGN & Nominal telemetry across all segments & Allow command execution \\
+A1: Identity Spoof & Missing MFA, anomalous login locus & Deny; terminate token \\
+A2: Device Malware & Failed device posture, key drift & Quarantine endpoint \\
+A3: Signer Bypass & Missing dual-approval, signer mismatch & Reject telecommand \\
+A4: Link Attacks & RF SNR drop, frame rollback, MAC/peer fail & Drop frame; block counter \\
+A5: Parser Stress & Packet length anomaly, parser fault & Flush command buffer \\
+A6: Bus Lateral Move & Unauthorized bus source ID, bus jitter & Isolate bus interface \\
+A7: Unsafe Actuation & Violated slew limits, battery depletion & Veto; enter safe mode \\
+A7: PNT Spoof & Cross-sensor GNSS ephemeris divergence & Reject falsified fix \\
+A8: Update Poisoning & Failed firmware hash, invalid patch & Reject upload; hold gold \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{Threat Model and Attack Ontology}
+We consider an adversary attempting to inject, tamper with, or replay spacecraft telecommands
+across ground, space link, or onboard segments. The threat model maps to the SPARTA aerospace
+matrix~\cite{ref15} and spans 18 fine-grained classes across 8 functional attack families
+(A1--A8) and benign operations, as detailed in Table~\ref{tab:ontology}. A4 covers nine link
+sublabels (network DoS, RF uplink/downlink jamming, RF injection, ground station spoofing,
+TLS peer spoofing, command replay, SDLS counter replay, and cryptographic downgrade).
+
+\section{Spacecraft Security Graph Representation}
+
+A spacecraft C2 pass is modeled as a heterogeneous directed graph snapshot
+$\mathcal{G} = (\mathcal{V}, \mathcal{E}, \mathcal{R})$. The node set $\mathcal{V}$
+($|\mathcal{V}| = 23$) spans human operators, ground devices, mission services, gateways,
+flight controllers, GNSS receivers, and subsystem actuators/sensors. The edge set
+$\mathcal{E}$ ($|\mathcal{E}| = 26$) captures causal interactions categorized into
+$|\mathcal{R}| = 12$ reusable relation families (e.g., \textsc{Operates},
+\textsc{Authorizes}, \textsc{Uplinks}, \textsc{Dispatches}, \textsc{Controls},
+\textsc{Senses}).
+
+Each edge $e = (u, v)$ carries an observable telemetry vector $\mathbf{x}_e \in \mathbb{R}^{28}$
+and an applicability mask $\mathbf{a}_e \in \{0, 1\}^{28}$ that zeroes out features irrelevant
+to relation type $r_e$. (The expected-minus-observed contract residual
+$\mathbf{\delta}_e = f_{\text{obs}}(e) - f_{\text{exp}}(e)$ is a schema-level definition that the released model does not compute; the model consumes $\mathbf{x}_e$ and $\mathbf{a}_e$ directly.) Node features $\mathbf{x}_v \in \mathbb{R}^{16}$ encode subsystem
+operating mode, health, and counter states.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{Fig1_final2.png}
+\caption{End-to-end SP-SP-GAT architecture. Independent security evidence is structured
+across ground enterprise, space link, and onboard subsystem boundaries.
+The relational GATv2 layers consume per-edge observed telemetry indicators $\mathbf{x}_e$
+and applicability masks $\mathbf{a}_e$ (expected-minus-observed contract residuals
+$\mathbf{\delta}_e$ are a schema-level definition, not computed by the released model).
+The multi-task heads provide classification and edge risk localization,
+while the deterministic command gate is designed to be non-bypassable by model predictions (a specification only, not implemented in released code; evaluation deferred to future work).}
+\label{fig:arch}
+\end{figure*}
+
+\section{Proposed SP-SP-GAT Model Architecture}
+
+\subsection{Relational Layer with Edge Features}
+Standard GATv1~\cite{ref22} computes static attention rankings that cannot invert neighbor
+importance based on dynamic query state~\cite{ref23}. SP-SP-GAT V2 implements batched
+relational GATv2 layers~\cite{ref23,ref31} consuming per-edge telemetry indicators
+$\mathbf{x}_e$ with applicability masks $\mathbf{a}_e$. For node $i \in \mathcal{V}$ and neighbor $j \in \mathcal{N}(i)$ connected via
+edge $e=(j, i)$ with relation $r_e$:
+\begin{align}
+\mathbf{z}_{ij} &= \text{LeakyReLU}\!\left( \mathbf{W}_{\!s} \mathbf{h}_j +
+  \mathbf{W}_{\!d} \mathbf{h}_i + \mathbf{W}_{\!r} (\mathbf{x}_e {\odot} \mathbf{a}_e)
+  + \mathbf{r}_{r_e} \right)\!, \\
+\alpha_{ij} &= \frac{\exp(\mathbf{a}_{\!a}^T \mathbf{z}_{ij})}%
+  {\sum_{k \in \mathcal{N}(i)} \exp(\mathbf{a}_{\!a}^T \mathbf{z}_{ik})}, \\
+\mathbf{h}_i^{(l+1)} &= \sigma \!\left( \sum_{j \in \mathcal{N}(i)} \alpha_{ij}
+  \mathbf{W}_{\!v} \mathbf{h}_j^{(l)} \right).
+\end{align}
+The per-destination softmax produces attention weights that sum to 1 per destination node,
+verified by a unit test on random graphs (also verified for the V2-meanagg
+uniform-weight variant).
+
+\subsection{Applicable-Only Min Readout}
+After $L=2$ relational GATv2 layers ($H=4$ heads, hidden dim $h=128$), the graph-level readout summarizes the edge evidence $\mathbf{x}_e$ by, for each of the 28 evidence coordinates, the minimum over the edges on which that coordinate is applicable ($a_e=1$), or $0$ if there is none. In the original design (V0) the minimum was taken over all 26 edges, including zero-padded inapplicable entries, and was therefore identically zero.
+
+\subsection{Multi-Task Prediction Heads and Loss Formulation}
+Four heads operate on graph-level and edge-level representations: (i) an 18-class attack
+classifier $\hat{y} \in \mathbb{R}^{18}$; (ii) an edge risk localization head
+$\hat{s}_e \in [0, 1]$; (iii) a node localization head; and (iv) an evidential uncertainty
+head. Only the classification and edge localization heads receive loss gradients:
+\begin{equation}
+\mathcal{L} = \mathcal{L}_\mathrm{cls}(\hat{y}, y) +
+  \lambda_\mathrm{loc} \mathcal{L}_\mathrm{edge}(\hat{s}_e, s_e),
+\end{equation}
+where $\mathcal{L}_\mathrm{cls}$ is cross-entropy weighted by inverse square-root class
+frequencies, $\mathcal{L}_\mathrm{edge}$ is binary cross-entropy (BCE) over edge labels,
+and $\lambda_\mathrm{loc} = 0.3$. Node localization and uncertainty heads are structural
+architectural components receiving no gradient updates in this benchmark.
+
+\subsection{Deterministic Command Gate (Specification Only)}
+We specify a gate of nine Boolean predicates: AuthUser, AuthDevice, RoleAllows, ApprovalsPresent (authorization); Fresh (freshness); PeerValid, SignatureValid, CorrectRoute (crypto/integrity); StateSafe (safe state). A command executes only if all nine predicates hold:
+\begin{equation}
+\Phi(c) = \bigwedge_{p \in \mathcal{P}} p(c),
+\end{equation}
+where $\mathcal{P} = \{\text{AuthUser},$ $\text{AuthDevice},$ $\text{RoleAllows},$ $\text{ApprovalsPresent},$ $\text{Fresh},$ $\text{PeerValid},$ $\text{SignatureValid},$ $\text{CorrectRoute},$ $\text{StateSafe}\}$. A model score may only tighten, never relax, this decision (following Alshiekh et al.~\cite{ref36} and Bak et al.~\cite{ref37}). The gate is a design: it is not implemented in the released code and this paper does not evaluate it. As noted by Jain and Wallace~\cite{ref35}, learned attention weights do not constitute causal guarantees; the deterministic gate, not the GNN, is designed to be authoritative.
+
+\section{Benchmark and Experimental Setup}
+
+\subsection{SatSecGraph-1 Dataset}
+SatSecGraph-1 contains 50 simulated heterogeneous spacecraft C2 missions. Missions are
+partitioned using 1-Weisfeiler-Lehman (1-WL) graph subtree hashing~\cite{ref_wl} into topologically
+disjoint sets (seed 46: 27/6/10 train/val/test WL hashes and 30/7/13 missions; seed 42: 32/7/11 missions), ensuring zero test topology overlap. Across seeds 42--46, snapshot
+counts range from $2{,}651$ to $2{,}759$.
+
+\textbf{Separability audit.} Because each attack class mutates fixed edge/feature
+coordinates, single features can separate every attack class from plain benign telemetry.
+This benchmark-level separability is consistent with the high Macro-F1 of set pooling
+and is a central threat to validity. Full details in Table~\ref{tab:separability_audit}.
+
+\subsection{Evaluation Protocol P2}
+All neural models share Protocol P2 across seeds 42--46: Adam optimizer, initial
+lr$\,=10^{-3}$, weight decay$\,=10^{-5}$, cosine annealing over 50 epochs, early stopping
+after epoch 30 (patience 10) on validation Macro-F1, square-root inverse-frequency class
+weighting, gradient clipping at 2.0, hidden dim $h=128$, $L=2$ layers, $H=4$ attention
+heads, dropout 0.1. DeepSets uses cross-entropy only (no BCE auxiliary loss). Flat-LR is run in canonical order and with permutation augmentation. RF uses $n=300$ estimators, \texttt{max\_features}=0.3, and balanced class weights~\cite{ref38}. HistGradientBoosting (scikit-learn) uses balanced class weights with library defaults. The best-validation checkpoint over all epochs is restored for all neural models.
+
+\textbf{Statistical evaluation.} Standard deviations are computed over the five
+dataset-seed means ($ddof=1$, averaging initialization seeds within each split first).
+Statistical comparisons use clustered bootstrap with $10{,}000$ resamples over 60 test
+mission clusters; 95\% CIs are reported. No p-values are reported. All CIs for pairwise comparisons are reported for the paired difference V2 minus the named comparison model.
+
+\textbf{Permutation-invariance unit test.} Random node permutations of 50 test graphs, with edge indices consistently remapped, change the logits of SP-SP-GAT V2 by at most $2.9\times10^{-6}$ (invariance up to floating-point tolerance).
+
+\section{Experimental Results}
+
+\textbf{Implementation defects and protocol.} Our initial implementation had three defects: (i) the edge-minimum readout feature was identically zero, because inapplicable entries are zero; (ii) the attention softmax was normalised over all edges of the graph instead of each node's incoming edges; (iii) early stopping could end training before epoch 30 (9 of 80 earlier neural runs stopped after 13--16 epochs). V2 fixes (i) and (ii); V0 reproduces the original architecture. Protocol P2 (minimum 30 epochs) addresses (iii); it was adopted after inspecting these runs, is applied identically to every neural model, and was not tuned per model. Under the earlier protocol V2 reached $0.893 \pm 0.075$ and exceeded NoMP-V2 by only $+0.02$ (95\% CI spanning zero), against about $+0.08$ under P2, so the benefit of message passing depends on the training protocol. Results are bit-reproducible only for a fixed thread count and CPU: V2 test Macro-F1 varied by up to 0.041 (seed 42) and 0.021 (seed 45) across thread caps 1, 2 and 4. GCN, GraphSAGE and GATv1 use node features only in message passing, baselines were not individually tuned, and V2 additionally uses the auxiliary edge loss, so a margin over them is not evidence for attention.
+
+\subsection{Benchmark Performance Comparison}
+
+Table~\ref{tab:main_results} presents the full Protocol~P2 results. SP-SP-GAT V2 achieves
+$\macroVTwoMean \pm \macroVTwoStd$ Macro-F1, outperforming all GNN baselines:
+NoMP-V2 ($\macroNoMPVTwoMean \pm \macroNoMPVTwoStd$; 95\% CI $[\macroBootstrapCiVTwoVsNoMPLo, \macroBootstrapCiVTwoVsNoMPHi]$, excludes
+zero), GraphSAGE-V2 ($\macroGraphSAGEVTwoMean \pm \macroGraphSAGEVTwoStd$; CI $[\macroBootstrapCiVTwoVsGraphSAGELo, \macroBootstrapCiVTwoVsGraphSAGEHi]$), GATv1-dest-V2 ($\macroGATvOnedestVTwoMean \pm \macroGATvOnedestVTwoStd$; CI $[\macroBootstrapCiVTwoVsGATvOneLo, \macroBootstrapCiVTwoVsGATvOneHi]$), and GCN-V2 ($\macroGCNVTwoMean \pm \macroGCNVTwoStd$; CI $[\macroBootstrapCiVTwoVsGCNLo, \macroBootstrapCiVTwoVsGCNHi]$). All GNN-baseline CIs exclude zero.
+
+DeepSets achieves $\macroDeepSetsbothMean \pm \macroDeepSetsbothStd$ (bootstrap CI $[\macroBootstrapCiVTwoVsDeepSetsLo, \macroBootstrapCiVTwoVsDeepSetsHi]$, baseline superior by a small margin). HistGradientBoosting achieves $\macroHGBMean \pm \macroHGBStd$ (CI $[\macroBootstrapCiVTwoVsHGBcorrLo, \macroBootstrapCiVTwoVsHGBcorrHi]$, includes zero; no consistent difference detected). Random Forest~\cite{ref38} achieves $\macroTunedRFcorrectedMean \pm \macroTunedRFcorrectedStd$ (CI $[\macroBootstrapCiVTwoVsTunedRFcorrLo, \macroBootstrapCiVTwoVsTunedRFcorrHi]$).
+
+\input{tables/table_master_main}
+
+\subsection{Ablation: Architecture Design Choices}
+
+\textbf{Variants.}
+\textit{V0}: original model with graph-wide attention softmax and zero-masked readout.
+\textit{V1}: V0 with per-destination attention softmax.
+\textit{V2}: V1 with applicable-only min readout (corrected SP-SP-GAT).
+\textit{V3}: V2 with an additional applicable-only mean readout.
+\textit{V2-noBCE}: V2 without the auxiliary edge-localization loss.
+\textit{V2-meanagg}: V2 with learned attention replaced by uniform in-degree weights.
+\textit{NoMP-V2}: V2 without message passing (node features only).
+
+\input{tables/table_ablation}
+
+Moving from V0 to V1 (per-destination softmax) raises Macro-F1 by $+0.1183$, and moving from V1 to V2 (applicable-only readout) raises it by a further $+0.1740$ (Table~IV); this decomposition is order-dependent, and V0 and V1 use a single initialization seed. V2 differs from V3 by $-0.0009$ (95\% CI $[-0.0103, +0.0086]$), from V2-meanagg by $-0.0010$ ($[-0.0108, +0.0087]$), and from V2-noBCE by $+0.0035$ ($[-0.0069, +0.0139]$). All intervals include zero, so we detect no benefit from the mean readout, learned attention weights, or the auxiliary loss on Macro-F1.
+
+\subsection{Hard-Negative Disturbance Evaluation}
+
+Hard-negative evaluation measures false positive rates on 240 test benign disturbance
+episodes (pooled over five seeds: degraded thermal/link, credential jitter, solar storm,
+GNSS multipath). SP-SP-GAT V2 achieves $\macroVTwoHnFpr\%$ hard-negative FPR (95\% Wilson CI $[\macroVTwoHnWilsonLo\%, \macroVTwoHnWilsonHi\%]$), with lower point estimates than the graph baselines (the V2 and GATv1 intervals overlap): GraphSAGE-V2 $\macroGraphSAGEVTwoHnFpr\%$,
+
+NoMP-V2 $\macroNoMPVTwoHnFpr\%$, GCN-V2 $\macroGCNVTwoHnFpr\%$, GATv1-dest-V2 $\macroGATvOnedestVTwoHnFpr\%$. DeepSets achieves $\macroDeepSetsbothHnFpr\%$ ($[\macroDeepSetsbothHnWilsonLo\%, \macroDeepSetsbothHnWilsonHi\%]$). Full per-model Wilson CIs are in Table~\ref{tab:main_results}.
+
+\subsection{Edge Risk Localization}
+
+V2 reaches Edge AP 0.937 (Hit@1 93.6\%, Hit@3 98.7\%); the predicted-class prior reaches 0.974, the true-class prior 1.000 (an oracle), the marginal prior 0.466, random ranking 0.113, and V2 without the auxiliary loss 0.208. In the generator each attack class touches a fixed set of edges, so a lookup by predicted class scores at least as high as the learned head: localization is a property of the benchmark, and the head works only with the auxiliary loss. We report no Edge AP for NoMP, whose localizer does not receive edge features.
+
+\subsection{Single-Feature Separability Audit}
+\input{tables/table_single_feature_separability}
+As shown in Table~\ref{tab:separability_audit}, a single feature detects each of the 17 attack sublabels against plain benign telemetry ($\ge 86\%$ recall, $\le 1.5\%$ FPR; thresholds calibrated on training plain-benign data at a 1\% budget). On the 240 benign disturbance episodes, 8 of the 17 detectors flag $\le 2.1\%$ and 9 flag $17.5$--$25.0\%$, while the combined multi-feature monitor (one threshold per contract family, edges 0--19) flags 146 of 240 (60.8\%, 95\% Wilson CI 54.5--66.8\%): static thresholds do not separate benign disturbances from attacks.
+
+\subsection{Computational Cost and Memory}
+
+\input{tables/table_computational_cost}
+
+Table~\ref{tab:computational_cost} reports parameter count, memory footprint (parameter bytes plus peak activation memory at batch size 1), and median inference latency on a desktop CPU (12th Gen Intel i5-1235U, single thread). SP-SP-GAT V2 uses 183K parameters (949 KB total memory, 1.28 ms), versus DeepSets (113K, 616 KB, 0.27 ms) and NoMP-V2 (99K, 470 KB, 0.42 ms). These measurements exclude flight-hardware constraints and do not represent onboard latency.
+
+\section{Discussion and Threats to Validity}
+\textbf{Benchmark separability.} SatSecGraph-1's fixed-coordinate mutations let set pooling succeed without multi-hop reasoning; future benchmarks need cross-edge signature overlap, stealth tiers and coordinate randomization to test relational learning.
+
+\textbf{Message passing vs.\ set pooling.} V2 outperforms all graph baselines but is marginally outperformed by DeepSets (CI $[-0.023,-0.005]$, $\Delta\approx-0.014$); on hard negatives V2 flags 9.2\% vs.\ 7.9\%, a gap that may not hold on harder disturbances. DeepSets on edge evidence alone scores $0.9621 \pm 0.0138$ and on node features alone $0.0461$ (majority-class level), so on this benchmark the signal is in the per-edge evidence, not in graph structure.
+
+\textbf{Limitations.} SatSecGraph-1 is entirely synthetic and the gap to real telemetry is unknown. Attacks, disturbances and the threshold monitor were all designed by us on the same generator, so detection and false-alarm rates measure internal consistency, not operational performance. Latency was measured on a desktop CPU (batch size~1) and does not reflect flight hardware; no hardware-in-the-loop evaluation (e.g., NOS3, cFS, CryptoLib) was done. The command gate is specified, not implemented or evaluated. Results use five seeds only.
+
+\textbf{Data availability.} The SatSecGraph-1 dataset and evaluation code are not publicly available at this time.
+
+\section{Conclusion}
+This paper studied SP-SP-GAT, a relational GATv2-style model of spacecraft C2 that consumes per-edge telemetry indicators with applicability masks and an applicable-only readout. Under Protocol P2 on SatSecGraph-1 (five seeds, clustered
+bootstrap evaluation), SP-SP-GAT V2 ($\macroVTwoMean \pm \macroVTwoStd$ Macro-F1) outperforms
+all GNN baselines (GCN \cite{ref21}, GraphSAGE \cite{ref20} and GATv1 \cite{ref18} use node features only in message passing) with CIs excluding zero and achieves $\macroVTwoHnFpr\%$ hard-negative FPR. DeepSets
+is marginally higher at $\macroDeepSetsbothMean$; HistGradientBoosting is comparable
+($\macroHGBMean$, CI includes zero). Replacing learned attention with uniform in-degree weights
+produces no detectable performance difference, indicating that gains stem from edge-aware message
+passing and corrected readout rather than dynamic attention. Single-feature thresholds separate all 17 attack classes from plain nominal telemetry (17/17 at $\ge 86\%$ recall and $\le 1.5\%$ FPR), but a multi-feature static monitor raises about 60\% false alarms on benign disturbance episodes, against 8–21\% for the corrected graph and set models. SP-SP-GAT's primary contributions are
+its typed evidence representation with applicability masks, the identification of key implementation defects,
+and the specification of a deterministic command gate (specification only, not implemented in released code)
+as a foundation for future space cybersecurity architectures.
+
+\FloatBarrier
+\scriptsize
+\begin{thebibliography}{35}
+
+\bibitem{ref1}
+Consultative Committee for Space Data Systems,
+\textit{Security Architecture for Space Data Systems},
+CCSDS 351.0-M-1, Nov. 2012.
+
+\bibitem{ref2}
+Consultative Committee for Space Data Systems,
+\textit{CCSDS Cryptographic Algorithms},
+CCSDS 352.0-B-2, Aug. 2019. 
+
+\bibitem{ref3}
+Consultative Committee for Space Data Systems,
+\textit{Symmetric Key Management},
+CCSDS 354.0-M-1, Dec. 2023. 
+
+\bibitem{ref4}
+Consultative Committee for Space Data Systems,
+\textit{Space Data Link Security Protocol},
+CCSDS 355.0-B-2, Aug. 2022.
+
+\bibitem{ref5}
+Consultative Committee for Space Data Systems,
+\textit{Space Data Link Security Protocol Extended Procedures},
+CCSDS 355.1-B-1, Feb. 2020. 
+
+\bibitem{ref8}
+National Aeronautics and Space Administration,
+\textit{Space System Protection Standard},
+NASA-STD-1006A, 2022. 
+
+\bibitem{ref9}
+J. Boyens \textit{et al.},
+\textit{Cybersecurity Framework Profile for the Satellite Ground Segment},
+NIST IR 8401, 2022,
+doi: 10.6028/NIST.IR.8401.
+
+\bibitem{ref10}
+National Institute of Standards and Technology,
+\textit{Cybersecurity Framework Profile for Hybrid Satellite Networks},
+NIST IR 8441, 2023.
+
+\bibitem{ref11}
+S. Rose, O. Borchert, S. Mitchell, and S. Connelly,
+\textit{Zero Trust Architecture},
+NIST SP 800-207, Aug. 2020,
+doi: 10.6028/NIST.SP.800-207.
+
+\bibitem{ref12}
+International Organization for Standardization,
+\textit{Space Systems--Cybersecurity Management Requirements and Recommendations}, 2024.
+
+\bibitem{ref15}
+The Aerospace Corporation,
+``Space Attack Research and Tactic Analysis (SPARTA),''
+ver. 3.0, 2024. 
+
+\bibitem{ref16}
+S. Salim, N. Moustafa, and M. Reisslein,
+``Cybersecurity of Satellite Communications Systems: A Comprehensive Survey of the Space, Ground, and Links Segments,''
+\textit{IEEE Commun. Surveys Tuts.}, vol. 27, no. 1, pp. 372--425, 2025.
+
+\bibitem{ref17}
+M. Manulis, C. P. Bridges, R. Harrison, V. Sekar, and A. Davis,
+``Cyber security in New Space,''
+\textit{Int.\ J.\ Inf.\ Secur.}, vol. 20, no. 3, pp. 287--311, 2021,
+doi: 10.1007/s10207-020-00503-w.
+
+\bibitem{ref18}
+J. Willbold, M. Schloegel, M. Vögele, M. Gerhardt, T. Holz, and A. Abbasi, “Space Odyssey: An Experimental Software Security Analysis of Satellites,” in 2023 IEEE Symposium on Security and Privacy (SP) in \textit{Proc.\ IEEE Symp.\ Secur.\ Privacy (S\&P)}, 2023.
+
+\bibitem{ref19}
+J. Pavur, M. Strohmeier, V. Lenders, and I. Martinovic,
+``Secrets in the Sky: On Privacy and Infrastructure Security in DVB-S Satellite
+Broadband,''
+in \textit{Proc.\ ACM WiSec}, 2019, pp. 163--174,
+doi: 10.1145/3317549.3323418.
+
+\bibitem{ref20}
+G. Giuliari, T. Klenze, M. Legner, D. Basin, A. Perrig, and A. Singla,
+``ICARUS: Attacking (and Defending) Low Earth Orbit Satellite Networks,''
+in \textit{Proc.\ USENIX ATC}, 2021, pp. 317--332.
+
+\bibitem{ref21}
+R. Bisping, J. Willbold, M. Strohmeier, and V. Lenders,
+``Wireless Signal Injection Attacks on VSAT Satellite Modems,''
+in \textit{Proc.\ USENIX Secur.\ Symp.}, 2024, pp. 6965--6982. 
+
+\bibitem{ref22}
+P. Veli\v{c}kovi\'c, G. Cucurull, A. Casanova, A. Romero, P. Li\`o, and Y. Bengio,
+``Graph Attention Networks,''
+in \textit{Proc.\ ICLR}, 2018.
+
+\bibitem{ref23}
+S. Brody, U. Alon, and E. Yahav,
+``How Attentive Are Graph Attention Networks?''
+in \textit{Proc.\ ICLR}, 2022.
+
+\bibitem{ref24}
+W. L. Hamilton, R. Ying, and J. Leskovec,
+``Inductive Representation Learning on Large Graphs,''
+in \textit{Proc.\ NeurIPS}, vol. 30, 2017, pp. 1024--1034.
+
+\bibitem{ref25}
+T. N. Kipf and M. Welling,
+``Semi-Supervised Classification with Graph Convolutional Networks,''
+in \textit{Proc.\ ICLR}, 2017.
+
+\bibitem{ref26}
+T. Bilot \textit{et al.},
+``Graph Neural Networks for Intrusion Detection: A Survey,''
+\textit{IEEE Access}, vol. 11, 2023,
+doi: 10.1109/ACCESS.2023.3275789.
+
+\bibitem{ref27}
+W. W. Lo, S. Layeghy, M. Sarhan, M. Gallagher, and M. Portmann,
+``E-GraphSAGE: A Graph Neural Network based Intrusion Detection System for IoT,''
+in \textit{Proc.\ IEEE/IFIP NOMS}, 2022, pp. 1--9.
+
+\bibitem{ref31}
+D. Busbridge, D. Sherburn, P. Cavallo, and N. Y. Hammerla,
+``Relational Graph Attention Networks,''
+\textit{arXiv:1904.05811}, 2019.
+
+\bibitem{ref32}
+Z. Jia, Y. Xiong, Y. Nan, Y. Zhang, J. Zhao, and M. Wen,
+``MAGIC: Detecting Advanced Persistent Threats via Masked Graph Representation
+Learning,''
+in \textit{Proc.\ USENIX Secur.\ Symp.}, 2024, pp. 3323--3340.
+
+\bibitem{ref33}
+B. Jiang, T. Bilot, N. El Madhoun, K. Al Agha, A. Zouaoui, S. Iqbal, X. Han,
+and T. Pasquier,
+``ORTHRUS: Achieving High Quality of Attribution in Provenance-based Intrusion Detection Systems,''
+in \textit{Proc.\ USENIX Secur.\ Symp.}, 2025.
+
+\bibitem{ref35}
+S. Jain and B. C. Wallace,
+``Attention is not Explanation,''
+in \textit{Proc.\ NAACL-HLT}, 2019, pp. 3543--3556,
+doi: 10.18653/v1/N19-1357.
+
+\bibitem{ref36}
+M. Alshiekh, R. Bloem, R. Ehlers, B. K\"onighofer, S. Niekum, and U. Topcu,
+``Safe Reinforcement Learning via Shielding,''
+in \textit{Proc.\ AAAI Conf.\ Artif.\ Intell.}, vol. 32, no. 1, 2018,
+pp. 2669--2678.
+
+\bibitem{ref37}
+S. Bak, D. K. Chivukula, O. Adekunle, M. Sun, M. Caccamo, and L. Sha,
+``The System-Level Simplex Architecture for Improved Real-Time Embedded System
+Safety,''
+in \textit{Proc.\ IEEE RTAS}, 2009, pp. 125--135.
+
+\bibitem{ref38}
+L. Breiman,
+``Random Forests,''
+\textit{Mach.\ Learn.}, vol. 45, no. 1, pp. 5--32, 2001.
+
+\bibitem{ref_deepsets}
+M. Zaheer, S. Kottur, S. Ravanbakhsh, B. P\'{o}czos, R. Salakhutdinov, and A. J. Smola,
+``Deep Sets,''
+in \textit{Proc.\ NeurIPS}, vol. 30, 2017, pp. 3391--3401.
+
+\bibitem{ref_wl}
+N. Shervashidze, P. Schweitzer, E. J. van Leeuwen, K. Mehlhorn, and K. M. Borgwardt,
+``Weisfeiler-Lehman Graph Kernels,''
+\textit{J.\ Mach.\ Learn.\ Res.}, vol. 12, pp. 2539--2561, 2011.
+
+\end{thebibliography}
+
+\end{document}

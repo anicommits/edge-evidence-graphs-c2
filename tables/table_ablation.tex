@@ -1,0 +1,21 @@
+% Source: results/final/main_table_recomputed.json
+\begin{table}[htbp]
+\centering
+\caption{Architecture ablation on SatSecGraph-1, Protocol P2.
+  Macro-F1: mean $\pm$ SD over five dataset seeds.
+  HN-FPR: hard-negative FPR on 240 disturbance episodes.}
+\label{tab:ablation}
+\begin{tabular}{lc r@{\,$\pm$\,}l r}
+\toprule
+Variant & $N_{\text{i}}$ & \multicolumn{2}{c}{Macro-F1} & HN-FPR \\
+\midrule
+V0 & 1 & \macroVZeroMean & \macroVZeroStd & \macroVZeroHnFpr\% \\
+V1 & 1 & \macroVOneMean & \macroVOneStd & \macroVOneHnFpr\% \\
+\textbf{V2} & 2 & \textbf{\macroVTwoMean} & \macroVTwoStd & \macroVTwoHnFpr\% \\
+V3 & 1 & \macroVThreeMean & \macroVThreeStd & \macroVThreeHnFpr\% \\
+V2-noBCE & 2 & \macroVTwonoBCEMean & \macroVTwonoBCEStd & \macroVTwonoBCEHnFpr\% \\
+V2-meanagg & 2 & \macroVTwomeanaggMean & \macroVTwomeanaggStd & \macroVTwomeanaggHnFpr\% \\
+NoMP-V2 & 2 & \macroNoMPVTwoMean & \macroNoMPVTwoStd & \macroNoMPVTwoHnFpr\% \\
+\bottomrule
+\end{tabular}
+\end{table}

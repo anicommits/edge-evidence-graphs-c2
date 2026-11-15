@@ -1,0 +1,30 @@
+\begin{table*}[t]
+\centering
+\caption{Train-Calibrated Single-Feature Diagnostic Audit across all 17 attack classes in SatSecGraph-1. Thresholds $\tau$ are calibrated strictly on TRAIN plain benign snapshots at a 1.0\% FPR budget. The Test FPR column is measured on plain benign snapshots only; hard negatives are listed separately in the Test Hard-Neg FPR column. Exactly 17/17 classes reach $\geq 86\%$ recall at $\leq 1.5\%$ test FPR on plain benign telemetry, yet static thresholds incur high false-alarm rates (up to 25.0\%) on benign disturbance episodes. Denominators 200, 188, and 108 represent active contact/subsystem snapshots where the edge applicability mask $\mathbf{a}_e > 0$ across the 240 test disturbance episodes (defined by JSON key \texttt{test\_hn\_active\_samples}).}
+\label{tab:separability_audit}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrccccc}
+\hline
+Attack Sublabel & Best Diagnostic Feature & Edge & Train $\tau$ & Test Plain FPR & Test Recall & 95\% Wilson CI & Test Hard-Neg FPR \\
+\hline
+A1\_IDENTITY\_SPOOF & \texttt{operator\_role\_authority} & 0 & 0.6597 & 0.78\% & \textbf{95.0\%} & [86.3\%, 98.3\%] & 0.8\% (2/240) \\
+A2\_DEVICE\_MALWARE & \texttt{endpoint\_integrity\_score} & 1 & 0.6476 & 0.78\% & \textbf{86.7\%} & [75.8\%, 93.1\%] & 18.3\% (44/240) \\
+A3\_SIGNER\_BYPASS & \texttt{cmd\_signature\_validity} & 2 & 0.6520 & 1.12\% & \textbf{96.7\%} & [88.6\%, 99.1\%] & 1.7\% (4/240) \\
+A4\_NET\_DOS & \texttt{tx\_queue\_occupancy} & 3 & 0.6565 & 0.78\% & \textbf{98.3\%} & [91.1\%, 99.7\%] & 0.8\% (2/240) \\
+A4\_RF\_JAM\_UP & \texttt{key\_strength\_indicator} & 4 & 0.6607 & 1.46\% & \textbf{100.0\%} & [94.0\%, 100.0\%] & 22.5\% (54/240) \\
+A4\_RF\_JAM\_DOWN & \texttt{downlink\_carrier\_snr} & 19 & 0.6584 & 0.46\% & \textbf{100.0\%} & [92.9\%, 100.0\%] & 21.0\% (42/200) \\
+A4\_RF\_INJECT & \texttt{rf\_spurious\_carrier} & 4 & 0.6604 & 0.73\% & \textbf{88.3\%} & [77.8\%, 94.2\%] & 0.8\% (2/240) \\
+A4\_STATION\_SPOOF & \texttt{uplink\_rssi\_snr} & 4 & 0.6554 & 1.26\% & \textbf{98.3\%} & [91.1\%, 99.7\%] & 20.4\% (49/240) \\
+A4\_TLS\_PEER\_SPOOF & \texttt{tls\_handshake\_mac} & 1 & 0.6679 & 1.26\% & \textbf{98.3\%} & [91.1\%, 99.7\%] & 2.1\% (5/240) \\
+A4\_REPLAY\_CMD & \texttt{cmd\_timestamp\_residual} & 5 & 0.6588 & 1.12\% & \textbf{100.0\%} & [94.0\%, 100.0\%] & 17.9\% (43/240) \\
+A4\_REPLAY\_SDLS & \texttt{sdls\_replay\_seq\_anomaly} & 4 & 0.6585 & 1.17\% & \textbf{100.0\%} & [94.0\%, 100.0\%] & 1.2\% (3/240) \\
+A4\_CRYPTO\_DOWNGRADE & \texttt{rf\_spurious\_carrier} & 4 & 0.6604 & 0.73\% & \textbf{98.3\%} & [91.1\%, 99.7\%] & 0.8\% (2/240) \\
+A5\_PARSER\_STRESS & \texttt{cmd\_timestamp\_residual} & 5 & 0.6588 & 1.12\% & \textbf{93.3\%} & [84.1\%, 97.4\%] & 17.9\% (43/240) \\
+A6\_BUS\_LATERAL\_MOVE & \texttt{bus\_unauthorized\_msg\_id} & 6 & 0.6528 & 1.18\% & \textbf{94.1\%} & [80.9\%, 98.4\%] & 17.5\% (33/188) \\
+A7\_UNSAFE\_ACTUATION & \texttt{momentum\_envelope\_margin} & 10 & 0.6631 & 1.44\% & \textbf{100.0\%} & [92.4\%, 100.0\%] & 0.5\% (1/188) \\
+A7\_PNT\_SPOOF & \texttt{gnss\_pseudorange\_residual} & 17 & 0.6665 & 1.22\% & \textbf{96.3\%} & [81.7\%, 99.3\%] & 25.0\% (27/108) \\
+A8\_UPDATE\_POISONING & \texttt{endpoint\_integrity\_score} & 1 & 0.6476 & 0.78\% & \textbf{100.0\%} & [94.0\%, 100.0\%] & 18.3\% (44/240) \\
+\hline
+\end{tabular}
+}
+\end{table*}

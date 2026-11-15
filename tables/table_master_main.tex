@@ -1,0 +1,27 @@
+\begin{table*}[t]
+\centering
+\caption{Main Benchmark Results on SatSecGraph-1 under Protocol P2 ($\min\text{epochs}=30$, max 50 epochs, cosine schedule, grad clip 2.0). Standard deviations are computed strictly over the 5 dataset-seed means ($ddof=1$, with initialization seeds averaged within each dataset split first). Hard-negative false positive rate (FPR) is evaluated on the 240 test benign disturbance episodes with 95\% Wilson score confidence intervals.}
+\label{tab:main_results}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\hline
+Model Architecture & Paradigm & $N_{\text{ds}}$ & $N_{\text{init}}$ & Total Runs ($N$) & Test Macro-F1 (Mean $\pm$ SD) & Hard-Negative FPR (95\% Wilson CI) \\
+\hline
+SP-SP-GAT V2 (Ours) & Edge-aware message passing & 5 & 2 & 10 & \textbf{\macroVTwoMean} $\pm$ \macroVTwoStd & \macroVTwoHnFpr\% (\macroVTwoHnWilsonLo\%, \macroVTwoHnWilsonHi\%) \\
+DeepSets (Nodes + Edges) & Permutation-Invariant Set & 5 & 2 & 10 & \textbf{\macroDeepSetsbothMean} $\pm$ \macroDeepSetsbothStd & \macroDeepSetsbothHnFpr\% (\macroDeepSetsbothHnWilsonLo\%, \macroDeepSetsbothHnWilsonHi\%) \\
+HistGradientBoosting (Corrected) & Gradient-Boosted Trees & 5 & 1 & 5 & \macroHGBMean $\pm$ \macroHGBStd & \macroHGBcorrectedHnFpr\% (\macroHGBcorrectedHnWilsonLo\%, \macroHGBcorrectedHnWilsonHi\%) \\
+Tuned Random Forest (Corrected) & Bagged Ensembles & 5 & 1 & 5 & \macroTunedRFcorrectedMean $\pm$ \macroTunedRFcorrectedStd & \macroTunedRFcorrectedHnFpr\% (\macroTunedRFcorrectedHnWilsonLo\%, \macroTunedRFcorrectedHnWilsonHi\%) \\
+GraphSAGE-V2 & Neighborhood Sampling GNN & 5 & 2 & 10 & \macroGraphSAGEVTwoMean $\pm$ \macroGraphSAGEVTwoStd & \macroGraphSAGEVTwoHnFpr\% (\macroGraphSAGEVTwoHnWilsonLo\%, \macroGraphSAGEVTwoHnWilsonHi\%) \\
+GATv1-dest-V2 & Standard Static Attention GNN & 5 & 2 & 10 & \macroGATvOnedestVTwoMean $\pm$ \macroGATvOnedestVTwoStd & \macroGATvOnedestVTwoHnFpr\% (\macroGATvOnedestVTwoHnWilsonLo\%, \macroGATvOnedestVTwoHnWilsonHi\%) \\
+NoMP-V2 (No Message Passing) & Decoupled MLP Readout & 5 & 2 & 10 & \macroNoMPVTwoMean $\pm$ \macroNoMPVTwoStd & \macroNoMPVTwoHnFpr\% (\macroNoMPVTwoHnWilsonLo\%, \macroNoMPVTwoHnWilsonHi\%) \\
+GCN-V2 & Isotropic Normalized GNN & 5 & 2 & 10 & \macroGCNVTwoMean $\pm$ \macroGCNVTwoStd & \macroGCNVTwoHnFpr\% (\macroGCNVTwoHnWilsonLo\%, \macroGCNVTwoHnWilsonHi\%) \\
+DeepSets (Edges Only) & Set Pooling Baseline & 5 & 2 & 10 & \macroDeepSetsedgeonlyMean $\pm$ \macroDeepSetsedgeonlyStd & \macroDeepSetsedgeonlyHnFpr\% (\macroDeepSetsedgeonlyHnWilsonLo\%, \macroDeepSetsedgeonlyHnWilsonHi\%) \\
+DeepSets (Nodes Only) & Set Pooling Baseline & 5 & 2 & 10 & \macroDeepSetsnodeonlyMean $\pm$ \macroDeepSetsnodeonlyStd & --$^\dagger$ \\
+Flat Logistic Regression (Perm-Aug) & Linear Model & 5 & 1 & 5 & \macroflatlrpermaugMean $\pm$ \macroflatlrpermaugStd & \macroflatlrpermaugHnFpr\% (\macroflatlrpermaugHnWilsonLo\%, \macroflatlrpermaugHnWilsonHi\%) \\
+Flat Logistic Regression (Canonical) & Linear Model & 5 & 1 & 5 & \macroflatlrcanonicalMean $\pm$ \macroflatlrcanonicalStd & \macroflatlrcanonicalHnFpr\% (\macroflatlrcanonicalHnWilsonLo\%, \macroflatlrcanonicalHnWilsonHi\%) \\
+Majority Class Baseline & Trivial Heuristic & 5 & 1 & 5 & \macromajorityclassMean $\pm$ \macromajorityclassStd & --$^\dagger$ \\
+\hline
+\multicolumn{7}{l}{\footnotesize $^\dagger$ Predicts only the majority benign class (Macro-F1 \macromajorityclassMean), yielding a trivial 0\% false-alarm rate.} \\
+\end{tabular}
+}
+\end{table*}
