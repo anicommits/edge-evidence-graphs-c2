@@ -3,6 +3,7 @@
 [![Conference](https://img.shields.io/badge/IEEE%20CCNC%202027-Accepted-brightgreen.svg)](https://ccnc2027.ieee-ccnc.org/)
 [![Track](https://img.shields.io/badge/Workshop-IEEE%20STP--CPS%202027-blue.svg)](#)
 [![Publisher](https://img.shields.io/badge/Publication-IEEE%20Xplore-red.svg)](https://ieeexplore.ieee.org/)
+[![Build & Verification](https://github.com/anicommits/edge-evidence-graphs-c2/actions/workflows/paper-ci.yml/badge.svg)](https://github.com/anicommits/edge-evidence-graphs-c2/actions/workflows/paper-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Official repository containing the camera-ready LaTeX source, architectural figures, data macros, and manuscript PDF for:

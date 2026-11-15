@@ -1,0 +1,56 @@
+name: Build & Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify Manuscript & Artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Verify Paper & Table Assets
+        run: |
+          echo "Checking manuscript source and dependencies..."
+          test -f main.tex
+          test -f Fig1_final2.png
+          test -f Fig1_final2.pdf
+          test -f fig1_final2.py
+          test -f Edge_Evidence_Graphs_for_Spacecraft_Command_and_Control_Security__A_Benchmark_Audit_on_Synthetic_Data.pdf
+          test -f tables/macros_final.tex
+          test -f tables/macros_final2.tex
+          test -f tables/macros_final3.tex
+          test -f tables/table_master_main.tex
+          test -f tables/table_ablation.tex
+          test -f tables/table_single_feature_separability.tex
+          test -f tables/table_computational_cost.tex
+          echo "All required files verified successfully."
+
+      - name: Test Figure 1 Generator
+        run: |
+          python -m pip install --upgrade pip
+          pip install matplotlib numpy
+          python fig1_final2.py
+          echo "Figure 1 successfully generated."
+
+      - name: Verify Camera-Ready PDF
+        run: |
+          pdf_size=$(stat -c%s "Edge_Evidence_Graphs_for_Spacecraft_Command_and_Control_Security__A_Benchmark_Audit_on_Synthetic_Data.pdf")
+          echo "PDF size: $pdf_size bytes"
+          if [ "$pdf_size" -lt 500000 ]; then
+            echo "Error: PDF file appears incomplete."
+            exit 1
+          fi
+          echo "PDF artifact integrity check passed."
